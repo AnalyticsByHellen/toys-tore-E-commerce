@@ -1,0 +1,255 @@
+
+1.--  Number of stores
+SELECT
+COUNT(DISTINCT Store_ID) AS no_of_stores
+FROM stores;
+
+2.-- Stores by city
+SELECT
+Store_City,
+COUNT(Store_ID) AS no_of_stores_city
+FROM stores
+GROUP BY Store_City
+ORDER BY no_of_stores_city DESC;
+
+3.-- Store by location 
+SELECT
+Store_Location,
+COUNT(Store_ID) AS no_of_stores_location
+FROM stores
+GROUP BY Store_Location
+ORDER BY no_of_stores_location DESC;
+
+4.-- Which stores sell the most units?
+SELECT 
+		st.Store_ID,
+		st.Store_Name,
+		st.Store_city,
+COUNT(s.units) As no_of_units
+FROM sales s
+JOIN stores st
+ON s.Store_ID = st.Store_ID
+GROUP BY    st.Store_ID,
+			st.Store_Name,
+			st.Store_city
+ORDER BY no_of_units DESC;
+
+5.-- Which stores generate the most revenue?
+SELECT 
+		st.Store_ID,
+		st.Store_Name,
+SUM(s.units *product_Price) As total_revenue
+FROM sales s
+JOIN products p
+     ON s.Product_ID = p.Product_ID
+JOIN stores st
+      ON s.Store_ID = st.Store_ID
+
+GROUP BY    st.Store_ID,
+			st.Store_Name
+ORDER BY total_revenue DESC;
+
+6.-- Which stores generate the most profit?
+SELECT 
+		st.Store_ID,
+		st.Store_Name,
+SUM(s.Units) AS total_units_sold,
+SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+FROM sales s
+JOIN products p
+     ON s.Product_ID = p.Product_ID
+JOIN stores st
+      ON s.Store_ID = st.Store_ID
+
+GROUP BY    st.Store_ID,
+			st.Store_Name
+ORDER BY Total_Profit DESC;
+
+7.-- Which cities generate the most revenue?
+SELECT 
+		st.Store_ID,
+		st.Store_city,
+SUM(s.units *product_Price) As total_revenue,
+SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+FROM sales s
+JOIN products p
+     ON s.Product_ID = p.Product_ID
+JOIN stores st
+      ON s.Store_ID = st.Store_ID
+
+GROUP BY    st.Store_ID,
+			st.Store_city
+ORDER BY total_revenue DESC
+limit 5;
+
+8.-- Which stores generate below-average revenue?
+WITH Store_Performance AS (
+    SELECT
+        st.Store_ID,
+        st.Store_Name,
+        st.Store_City,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales AS s
+    JOIN Stores AS st
+        ON s.Store_ID = st.Store_ID
+    JOIN Products AS p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        st.Store_ID,
+        st.Store_Name,
+        st.Store_City
+)
+SELECT
+    Store_ID,
+    Store_Name,
+    Store_City,
+    Total_Revenue
+FROM Store_Performance
+WHERE Total_Revenue < (
+    SELECT AVG(Total_Revenue)
+    FROM Store_Performance
+)
+ORDER BY Total_Revenue ASC
+LIMIT 5;
+
+9.-- Which stores outperform the average store?
+WITH Store_Performance AS (
+    SELECT
+        st.Store_ID,
+        st.Store_Name,
+        st.Store_City,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales AS s
+    JOIN Stores AS st
+        ON s.Store_ID = st.Store_ID
+    JOIN Products AS p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        st.Store_ID,
+        st.Store_Name,
+        st.Store_City
+)
+SELECT
+    Store_ID,
+    Store_Name,
+    Store_City,
+    Total_Revenue
+FROM Store_Performance
+WHERE Total_Revenue > (
+    SELECT AVG(Total_Revenue)
+    FROM Store_Performance
+)
+ORDER BY Total_Revenue DESC
+LIMIT 5;
+
+10.-- What is the best-selling product in each store?
+WITH Product_Sales AS (
+    SELECT 
+        st.Store_ID,
+        st.Store_Name,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units) AS Units_Sold,
+        
+        RANK() OVER (
+            PARTITION BY st.Store_ID
+            ORDER BY SUM(s.Units) DESC
+        ) AS Product_Rank
+        
+    FROM Sales AS s
+    JOIN Stores AS st
+        ON s.Store_ID = st.Store_ID
+    JOIN Products AS p
+        ON s.Product_ID = p.Product_ID
+        
+    GROUP BY 
+        st.Store_ID,
+        st.Store_Name,
+        p.Product_Name,
+        p.Product_Category
+)
+
+SELECT 
+    Store_ID,
+    Store_Name,
+    Product_Name,
+    Product_Category,
+    Units_Sold
+FROM Product_Sales
+WHERE Product_Rank = 1
+ORDER BY Store_ID;
+
+11.-- What is the highest-revenue product in each store?
+WITH Product_Revenue AS (
+    SELECT 
+        st.Store_ID,
+        st.Store_Name,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units *p.Product_Price) AS Total_Revenue,
+        
+        RANK() OVER (
+            PARTITION BY st.Store_ID
+            ORDER BY SUM(s.Units * p.product_price) DESC
+        ) AS Revenue_Rank
+        
+    FROM Sales AS s
+    JOIN Stores AS st
+        ON s.Store_ID = st.Store_ID
+    JOIN Products AS p
+        ON s.Product_ID = p.Product_ID
+        
+    GROUP BY 
+        st.Store_ID,
+        st.Store_Name,
+        p.Product_Name,
+        p.Product_Category
+)
+
+SELECT 
+    Store_ID,
+    Store_Name,
+    Product_Name,
+    Product_Category,
+    Total_Revenue
+FROM Product_Revenue
+WHERE Revenue_Rank = 1
+ORDER BY Store_ID;
+
+12.-- What are the top 3 products in each store?
+WITH Product_Sales AS (
+    SELECT 
+        st.Store_ID,
+        st.Store_Name,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units) AS Units_Sold,
+        
+        RANK() OVER (
+            PARTITION BY st.Store_ID
+            ORDER BY SUM(s.Units) DESC
+        ) AS Product_Rank
+        
+    FROM Sales AS s
+    JOIN Stores AS st
+        ON s.Store_ID = st.Store_ID
+    JOIN Products AS p
+        ON s.Product_ID = p.Product_ID
+        
+    GROUP BY 
+        st.Store_ID,
+        st.Store_Name,
+        p.Product_Name,
+        p.Product_Category
+)
+
+SELECT 
+    Store_ID,
+    Store_Name,
+    Product_Name,
+    Product_Category,
+    Units_Sold,
+    Product_Rank
+FROM Product_Sales
+WHERE Product_Rank <= 3
+ORDER BY Store_ID, Product_Rank;
