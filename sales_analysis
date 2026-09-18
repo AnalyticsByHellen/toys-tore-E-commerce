@@ -1,0 +1,477 @@
+1.-- Which products generate above-average revenue?
+SELECT
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category,
+    SUM(s.Units * p.Product_Price) AS Total_Revenue
+FROM Sales s
+JOIN Products p
+    ON s.Product_ID = p.Product_ID
+GROUP BY
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category
+HAVING SUM(s.Units * p.Product_Price) > (
+    SELECT AVG(Product_Revenue)
+    FROM (
+        SELECT
+            p2.Product_ID,
+            SUM(s2.Units * p2.Product_Price) AS Product_Revenue
+        FROM Sales s2
+        JOIN Products p2
+            ON s2.Product_ID = p2.Product_ID
+        GROUP BY p2.Product_ID
+    ) AS Revenue_Per_Product
+)
+ORDER BY Total_Revenue DESC;
+
+2.-- Which products sell more units than the average product?
+SELECT
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category,
+    SUM(s.Units) AS Total_Units_Sold
+FROM Sales s
+JOIN Products p
+    ON s.Product_ID = p.Product_ID
+GROUP BY
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category
+HAVING SUM(s.Units) > (
+    SELECT AVG(Total_Units)
+    FROM (
+        SELECT
+            Product_ID,
+            SUM(Units) AS Total_Units
+        FROM Sales
+        GROUP BY Product_ID
+    ) AS Product_Sales
+)
+ORDER BY Total_Units_Sold DESC;
+
+3.-- Which stores generate above-average revenue?
+SELECT
+    st.Store_ID,
+    st.Store_Name,
+    st.Store_City,
+    SUM(s.Units * p.Product_Price) AS Total_Revenue
+FROM Sales s
+JOIN Stores st
+    ON s.Store_ID = st.Store_ID
+JOIN Products p
+    ON s.Product_ID = p.Product_ID
+GROUP BY
+    st.Store_ID,
+    st.Store_Name,
+    st.Store_City
+HAVING SUM(s.Units * p.Product_Price) > (
+    SELECT AVG(Store_Revenue)
+    FROM (
+        SELECT
+            s2.Store_ID,
+            SUM(s2.Units * p2.Product_Price) AS Store_Revenue
+        FROM Sales s2
+        JOIN Products p2
+            ON s2.Product_ID = p2.Product_ID
+        GROUP BY s2.Store_ID
+    ) AS Revenue_Per_Store
+)
+ORDER BY Total_Revenue DESC;
+
+4.-- Which stores sell more units than the average store?
+SELECT
+    st.Store_ID,
+    st.Store_Name,
+    st.Store_City,
+    SUM(s.Units) AS Total_Units_Sold
+FROM Sales s
+JOIN Stores st
+    ON s.Store_ID = st.Store_ID
+GROUP BY
+    st.Store_ID,
+    st.Store_Name,
+    st.Store_City
+HAVING SUM(s.Units) > (
+    SELECT AVG(Total_Units)
+    FROM (
+        SELECT
+            Store_ID,
+            SUM(Units) AS Total_Units
+        FROM Sales
+        GROUP BY Store_ID
+    ) AS Store_Sales
+)
+ORDER BY Total_Units_Sold DESC;
+
+5.-- Which products have a profit margin higher than the average product?
+SELECT
+product_ID,
+Product_Name,
+Product_Category,
+ROUND (
+     ((Product_price - Product_Cost)/Product_price )*100, 
+     2)AS Profit_Margin
+FROM products
+WHERE
+    ((Product_Price - Product_Cost) / Product_Price) * 100
+    > (
+        SELECT AVG(
+            ((Product_Price - Product_Cost) / Product_Price) * 100
+        )
+        FROM Products
+    )
+ORDER BY Profit_Margin DESC;
+
+6.-- Which products generate more revenue than the average product in their category?
+WITH Product_Revenue AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+),
+
+Category_Averages AS (
+    SELECT
+        Product_Category,
+        AVG(Total_Revenue) AS Avg_Category_Revenue
+    FROM Product_Revenue
+    GROUP BY Product_Category
+)
+
+SELECT
+    pr.Product_ID,
+    pr.Product_Name,
+    pr.Product_Category,
+    pr.Total_Revenue,
+    ca.Avg_Category_Revenue
+FROM Product_Revenue pr
+JOIN Category_Averages ca
+    ON pr.Product_Category = ca.Product_Category
+WHERE pr.Total_Revenue > ca.Avg_Category_Revenue
+ORDER BY
+    pr.Product_Category,
+    pr.Total_Revenue DESC;
+
+7.-- What are the top 5 most profitable products?
+SELECT
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category,
+    SUM(s.Units) AS Total_Units_Sold,
+    SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+FROM Sales s
+JOIN Products p
+    ON s.Product_ID = p.Product_ID
+GROUP BY
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category
+ORDER BY Total_Profit DESC
+LIMIT 5;
+
+8.-- Which stores are performing above the average store?
+WITH Store_Revenue AS (
+    SELECT
+        Store_ID,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY Store_ID
+)
+SELECT
+    st.Store_ID,
+    st.Store_Name,
+    st.Store_City,
+    sr.Total_Revenue
+FROM Store_Revenue sr
+JOIN Stores st
+    ON sr.Store_ID = st.Store_ID
+WHERE sr.Total_Revenue > (
+    SELECT AVG(Total_Revenue)
+    FROM Store_Revenue
+)
+ORDER BY sr.Total_Revenue DESC;
+
+9.-- What are the best-performing months?
+DESCRIBE sales;
+SELECT
+    YEAR(s.Date) AS Sales_Year,
+    MONTH(s.Date) AS Month_Number,
+    MONTHNAME(s.Date) AS Sales_Month,
+    SUM(s.Units) AS Total_Units_Sold,
+    SUM(s.Units * p.Product_Price) AS Total_Revenue,
+    SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+FROM Sales s
+JOIN Products p
+    ON s.Product_ID = p.Product_ID
+GROUP BY
+    YEAR(s.Date),
+    MONTH(s.Date),
+    MONTHNAME(s.Date)
+ORDER BY Total_Revenue DESC;
+    
+10. -- Which products are overstocked?
+WITH Inventory_Total AS (
+    SELECT
+        Product_ID,
+        SUM(Stock_On_Hand) AS Total_Inventory
+    FROM Inventory
+    GROUP BY Product_ID
+),
+
+Sales_Total AS (
+    SELECT
+        Product_ID,
+        SUM(Units) AS Total_Units_Sold
+    FROM Sales
+    GROUP BY Product_ID
+),
+
+Product_Performance AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        COALESCE(i.Total_Inventory, 0) AS Total_Inventory,
+        COALESCE(s.Total_Units_Sold, 0) AS Total_Units_Sold
+    FROM Products p
+    LEFT JOIN Inventory_Total i
+        ON p.Product_ID = i.Product_ID
+    LEFT JOIN Sales_Total s
+        ON p.Product_ID = s.Product_ID
+),
+
+Averages AS (
+    SELECT
+        AVG(Total_Inventory) AS Avg_Inventory,
+        AVG(Total_Units_Sold) AS Avg_Sales
+    FROM Product_Performance
+)
+
+SELECT
+    pp.Product_ID,
+    pp.Product_Name,
+    pp.Product_Category,
+    pp.Total_Inventory,
+    pp.Total_Units_Sold
+FROM Product_Performance pp
+CROSS JOIN Averages a
+WHERE pp.Total_Inventory > a.Avg_Inventory
+  AND pp.Total_Units_Sold < a.Avg_Sales
+ORDER BY pp.Total_Inventory DESC;
+
+11. -- Rank products by revenue
+WITH Product_Revenue AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+)
+
+SELECT
+    Product_ID,
+    Product_Name,
+    Product_Category,
+    Total_Revenue,
+    RANK() OVER (
+        ORDER BY Total_Revenue DESC
+    ) AS Revenue_Rank
+FROM Product_Revenue
+ORDER BY Revenue_Rank;
+
+12. -- Rank products within each category
+WITH Product_Revenue AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+)
+
+SELECT
+    Product_ID,
+    Product_Name,
+    Product_Category,
+    Total_Revenue,
+    RANK() OVER (
+        PARTITION BY Product_Category
+        ORDER BY Total_Revenue DESC
+    ) AS Revenue_Rank
+FROM Product_Revenue
+ORDER BY
+    Product_Category,
+    Revenue_Rank;
+
+13.-- Find the top 3 products in every category
+WITH Product_Revenue AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+),
+
+Ranked_Products AS (
+    SELECT
+        *,
+        RANK() OVER (
+            PARTITION BY Product_Category
+            ORDER BY Total_Revenue DESC
+        ) AS Revenue_Rank
+    FROM Product_Revenue
+)
+
+SELECT
+    Product_ID,
+    Product_Name,
+    Product_Category,
+    Total_Revenue,
+    Revenue_Rank
+FROM Ranked_Products
+WHERE Revenue_Rank <= 3
+ORDER BY
+    Product_Category,
+    Revenue_Rank;
+
+14.-- Find the highest-revenue store in each city
+WITH Store_Revenue AS (
+    SELECT
+        st.Store_ID,
+        st.Store_Name,
+        st.Store_City,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Stores st
+        ON s.Store_ID = st.Store_ID
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        st.Store_ID,
+        st.Store_Name,
+        st.Store_City
+),
+
+Ranked_Stores AS (
+    SELECT
+        *,
+        RANK() OVER (
+            PARTITION BY Store_City
+            ORDER BY Total_Revenue DESC
+        ) AS Revenue_Rank
+    FROM Store_Revenue
+)
+
+SELECT
+    Store_ID,
+    Store_Name,
+    Store_City,
+    Total_Revenue
+FROM Ranked_Stores
+WHERE Revenue_Rank = 1
+ORDER BY Store_City;
+
+15.-- Find the second-highest revenue product in each category
+WITH Product_Revenue AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+),
+
+Ranked_Products AS (
+    SELECT
+        *,
+        RANK() OVER (
+            PARTITION BY Product_Category
+            ORDER BY Total_Revenue DESC
+        ) AS Revenue_Rank
+    FROM Product_Revenue
+)
+
+SELECT
+    Product_ID,
+    Product_Name,
+    Product_Category,
+    Total_Revenue,
+    Revenue_Rank
+FROM Ranked_Products
+WHERE Revenue_Rank = 2
+ORDER BY Product_Category;
+
+16.-- Find the third-highest revenue product in each category
+WITH Product_Revenue AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+),
+
+Ranked_Products AS (
+    SELECT
+        *,
+        RANK() OVER (
+            PARTITION BY Product_Category
+            ORDER BY Total_Revenue DESC
+        ) AS Revenue_Rank
+    FROM Product_Revenue
+)
+
+SELECT
+    Product_ID,
+    Product_Name,
+    Product_Category,
+    Total_Revenue,
+    Revenue_Rank
+FROM Ranked_Products
+WHERE Revenue_Rank = 3
+ORDER BY Product_Category;
+
+
