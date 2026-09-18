@@ -1,0 +1,89 @@
+-- How do sales change over time?
+1. -- Monthly sales
+SELECT
+    YEAR(Date) AS Sales_Year,
+    MONTH(Date) AS Sales_Month,
+    SUM(Units) AS Total_Units_Sold
+FROM Sales
+GROUP BY
+    YEAR(Date),
+    MONTH(Date)
+ORDER BY
+    Sales_Year,
+    Sales_Month;
+
+2. -- Monthly revenue trend
+SELECT
+    YEAR(s.Date) AS Sales_Year,
+    MONTHNAME(s.Date) AS Sales_Month,
+    MONTH(s.Date) AS Month_Number,
+    SUM(s.Units) AS Total_Units_Sold,
+    SUM(s.Units * p.Product_Price) AS Total_Revenue,
+    SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+FROM Sales s
+JOIN Products p
+    ON s.Product_ID = p.Product_ID
+GROUP BY
+    YEAR(s.Date),
+    MONTH(s.Date),
+    MONTHNAME(s.Date)
+ORDER BY
+    Sales_Year,
+    Month_Number;
+
+3. --  Which year had the highest sales?
+SELECT
+    YEAR(s.Date) AS Sales_Year,
+    SUM(s.Units) AS Total_Units_Sold,
+    SUM(s.Units * p.Product_Price) AS Total_Revenue,
+    SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+FROM Sales s
+JOIN Products p
+    ON s.Product_ID = p.Product_ID
+GROUP BY
+    YEAR(s.Date)
+   
+ORDER BY
+	Total_units_sold DESC;
+    
+4.-- Which products are growing or declining over time?
+WITH Monthly_Product_Sales AS (
+    SELECT 
+        p.Product_ID,
+        p.Product_Name,
+        DATE_FORMAT(s.Date, '%Y-%m') AS Sales_Month,
+        SUM(s.Units) AS Total_Units_Sold
+    FROM Sales AS s
+    JOIN Products AS p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY 
+        p.Product_ID,
+        p.Product_Name,
+        DATE_FORMAT(s.Date, '%Y-%m')
+),
+
+Product_Growth AS (
+    SELECT *,
+        LAG(Total_Units_Sold) OVER (
+            PARTITION BY Product_ID
+            ORDER BY Sales_Month
+        ) AS Previous_Month_Sales
+    FROM Monthly_Product_Sales
+)
+
+SELECT 
+    Product_ID,
+    Product_Name,
+    Sales_Month,
+    Total_Units_Sold,
+    Previous_Month_Sales,
+    
+    CASE
+        WHEN Total_Units_Sold > Previous_Month_Sales THEN 'Growing'
+        WHEN Total_Units_Sold < Previous_Month_Sales THEN 'Declining'
+        WHEN Total_Units_Sold = Previous_Month_Sales THEN 'No Change'
+        ELSE 'No Previous Data'
+    END AS Sales_Trend
+
+FROM Product_Growth
+ORDER BY Product_Name, Sales_Month;
