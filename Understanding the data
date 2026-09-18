@@ -1,0 +1,47 @@
+1. -- How many sales transactions are in the database?
+SELECT
+COUNT(*) AS totaltransaction
+FROM sales;
+
+2. -- Total units sold, Number Transaction, product sold and Number of stores involved
+SELECT
+    SUM(Units) AS Total_Units_Sold,
+    COUNT(Sale_ID) AS Number_of_Transactions,
+    COUNT(DISTINCT Product_ID) AS Number_of_Products_Sold,
+    COUNT(DISTINCT Store_ID) AS Number_of_Stores_Involved
+FROM Sales;
+
+3. -- What date range does the sales data cover?
+SELECT
+    MIN(Date)  AS Earliestdate,
+    MAX(Date) AS latestdate
+FROM Sales;
+
+4. -- How many products and product categories do we have?: Number of products ,Number of categories ,Products per category
+SELECT 
+    COUNT(DISTINCT Product_ID) AS Number_of_Products,
+    COUNT(DISTINCT Product_Category) AS Number_of_Categories
+FROM Products;
+
+SELECT
+    Product_Category,
+    COUNT(Product_ID) AS Number_of_Products
+FROM Products
+GROUP BY Product_Category
+ORDER BY Number_of_Products DESC;
+
+5. -- Number of stores, Stores by city, Stores by location type
+SELECT 
+    COUNT(DISTINCT Store_ID) AS Number_of_Store,
+    COUNT(DISTINCT Store_City) AS Number_of_storesbycity
+FROM stores;
+
+SELECT
+    Store_Location,
+    COUNT(Store_ID) AS Number_of_Store
+FROM stores
+GROUP BY Store_Location
+ORDER BY Number_of_Store DESC;
+
+
+
