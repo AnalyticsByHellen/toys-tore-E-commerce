@@ -1,0 +1,78 @@
+CREATE DATABASE Toystore_analysis;
+
+USE Toystore_analysis;
+
+1. Creating calendar table
+CREATE TABLE Calendar (
+    Date DATE
+);
+
+LOAD DATA LOCAL INFILE 'C:/Users/YourName/Downloads/Calendar.csv'
+INTO TABLE Calendar
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+IGNORE 1 ROWS
+(Date);
+
+2. Products table
+CREATE TABLE Products (
+    Product_ID INT,
+    Product_Name VARCHAR(100),
+    Product_Category VARCHAR(100),
+    Product_Cost VARCHAR(20),
+    Product_Price VARCHAR(20)
+);
+
+LOAD DATA LOCAL INFILE 'C:/Users/YourName/Downloads/Products.csv'
+INTO TABLE Products
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+IGNORE 1 ROWS
+(Product_ID, Product_Name, Product_Category, Product_Cost, Product_Price);
+
+3.Stores table
+CREATE TABLE Stores (
+    Store_ID INT,
+    Store_Name VARCHAR(100),
+    Store_City VARCHAR(100),
+    Store_Location VARCHAR(100),
+    Store_Open_Date DATE
+);
+
+LOAD DATA LOCAL INFILE 'C:/Users/YourName/Downloads/Stores.csv'
+INTO TABLE Stores
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+IGNORE 1 ROWS
+(Store_ID, Store_Name, Store_City, Store_Location, Store_Open_Date);
+
+4. Inventory table
+CREATE TABLE Inventory (
+    Store_ID INT,
+    Product_ID INT,
+    Stock_On_Hand INT
+);
+
+LOAD DATA LOCAL INFILE 'C:/Users/YourName/Downloads/Inventory.csv'
+INTO TABLE Inventory
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+IGNORE 1 ROWS
+(Store_ID, Product_ID, Stock_On_Hand);
+
+5. Sales table
+CREATE TABLE Sales (
+    Sale_ID INT,
+    Date DATE,
+    Store_ID INT,
+    Product_ID INT,
+    Units INT
+);
+
+LOAD DATA LOCAL INFILE 'C:/Users/YourName/Downloads/Sales.csv'
+INTO TABLE Sales
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+IGNORE 1 ROWS
+(Sale_ID, Date, Store_ID, Product_ID, Units);
+
