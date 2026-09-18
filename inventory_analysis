@@ -1,0 +1,180 @@
+1. -- Which products currently have the most inventory?
+SELECT
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category,
+    SUM(i.Stock_On_Hand) AS Total_Inventory
+FROM Inventory AS i
+JOIN Products AS p
+    ON i.Product_ID = p.Product_ID
+GROUP BY
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category
+ORDER BY Total_Inventory DESC;
+
+2.-- Which products have high inventory but low sales?
+WITH Inventory_Total AS (
+    SELECT
+        Product_ID,
+        SUM(Stock_On_Hand) AS Total_Inventory
+    FROM Inventory
+    GROUP BY Product_ID
+),
+
+Sales_Total AS (
+    SELECT
+        Product_ID,
+        SUM(Units) AS Total_Units_Sold
+    FROM Sales
+    GROUP BY Product_ID
+),
+
+Product_Performance AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        COALESCE(i.Total_Inventory, 0) AS Total_Inventory,
+        COALESCE(s.Total_Units_Sold, 0) AS Total_Units_Sold
+    FROM Products p
+    LEFT JOIN Inventory_Total i
+        ON p.Product_ID = i.Product_ID
+    LEFT JOIN Sales_Total s
+        ON p.Product_ID = s.Product_ID
+),
+
+Averages AS (
+    SELECT
+        AVG(Total_Inventory) AS Avg_Inventory,
+        AVG(Total_Units_Sold) AS Avg_Sales
+    FROM Product_Performance
+)
+
+SELECT
+    pp.Product_ID,
+    pp.Product_Name,
+    pp.Product_Category,
+    pp.Total_Inventory,
+    pp.Total_Units_Sold
+FROM Product_Performance pp
+CROSS JOIN Averages a
+WHERE pp.Total_Inventory > a.Avg_Inventory
+  AND pp.Total_Units_Sold < a.Avg_Sales
+ORDER BY pp.Total_Inventory DESC;
+
+3.-- Which products have low inventory but high sales?
+WITH Inventory_Total AS (
+    SELECT
+        Product_ID,
+        SUM(Stock_On_Hand) AS Total_Inventory
+    FROM Inventory
+    GROUP BY Product_ID
+),
+
+Sales_Total AS (
+    SELECT
+        Product_ID,
+        SUM(Units) AS Total_Units_Sold
+    FROM Sales
+    GROUP BY Product_ID
+),
+
+Product_Performance AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        COALESCE(i.Total_Inventory, 0) AS Total_Inventory,
+        COALESCE(s.Total_Units_Sold, 0) AS Total_Units_Sold
+    FROM Products p
+    LEFT JOIN Inventory_Total i
+        ON p.Product_ID = i.Product_ID
+    LEFT JOIN Sales_Total s
+        ON p.Product_ID = s.Product_ID
+),
+
+Averages AS (
+    SELECT
+        AVG(Total_Inventory) AS Avg_Inventory,
+        AVG(Total_Units_Sold) AS Avg_Sales
+    FROM Product_Performance
+)
+
+SELECT
+    pp.Product_ID,
+    pp.Product_Name,
+    pp.Product_Category,
+    pp.Total_Inventory,
+    pp.Total_Units_Sold
+FROM Product_Performance pp
+CROSS JOIN Averages a
+WHERE pp.Total_Inventory < a.Avg_Inventory
+  AND pp.Total_Units_Sold > a.Avg_Sales
+ORDER BY pp.Total_Inventory DESC;
+
+4.-- Which stores have the most inventory?
+SELECT
+st.store_ID,
+st.store_name,
+st.Store_location,
+SUM(i.Stock_On_Hand) AS Total_Inventory
+FROM Inventory AS i
+JOIN stores AS st
+ON st.store_ID = i.Store_ID
+GROUP BY  st.store_ID,
+		  st.store_name,
+		  st.Store_location
+ORDER BY Total_Inventory DESC
+LIMIT 10;
+
+-- Which stores have products with zero stock?
+SELECT
+		st.store_ID,
+		st.store_name,
+		st.Store_location,
+		p.product_name,
+		i.stock_on_hand
+FROM Inventory AS i
+JOIN Stores st
+    ON i.Store_ID = st.Store_ID
+JOIN Products p
+    ON i.Product_ID = p.Product_ID
+ WHERE i.Stock_On_Hand = 0
+GROUP BY  st.store_ID,
+		  st.store_name,
+          st.Store_location,
+          p.product_name,
+          i.stock_on_hand 
+ORDER BY st.store_ID, p.Product_Name DESC;
+
+SELECT
+    st.Store_ID,
+    st.Store_Name,
+    st.Store_City,
+    COUNT(*) AS Zero_Stock_Products
+FROM Inventory i
+JOIN Stores st
+    ON i.Store_ID = st.Store_ID
+WHERE i.Stock_On_Hand = 0
+GROUP BY
+    st.Store_ID,
+    st.Store_Name,
+    st.Store_City
+ORDER BY Zero_Stock_Products DESC;
+
+5.-- Which products are out of stock in the most stores?
+SELECT
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category,
+    COUNT(DISTINCT i.Store_ID) AS Stores_Out_Of_Stock
+FROM Inventory i
+JOIN Products p
+    ON i.Product_ID = p.Product_ID
+WHERE i.Stock_On_Hand = 0
+GROUP BY
+    p.Product_ID,
+    p.Product_Name,
+    p.Product_Category
+ORDER BY Stores_Out_Of_Stock DESC;
