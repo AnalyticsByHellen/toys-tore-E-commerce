@@ -1,0 +1,201 @@
+1. Data Cleaning
+-- Changing the Product price and cost from string to decimal
+SET SQL_SAFE_UPDATES = 0;
+
+UPDATE Products
+SET Product_Price = REPLACE(Product_Price, '$', ''),
+    Product_Cost = REPLACE(Product_Cost, '$', '');
+
+SET SQL_SAFE_UPDATES = 1;
+
+ALTER TABLE Products
+MODIFY Product_Price DECIMAL(10,2),
+MODIFY Product_Cost DECIMAL(10,2);
+
+SELECT Product_Price, Product_Cost
+FROM Products
+LIMIT 10;
+
+2. -- Which products sell the most units?
+SELECT
+p.product_name, 
+p.Product_category,
+SUM(s.Units) AS No_of_units
+FROM sales s
+JOIN products p
+ON s.Product_ID = p.Product_ID
+GROUP BY p.Product_name, 
+		 p.Product_category,
+         p.Product_ID
+ORDER BY No_of_units DESC;
+
+3.-- Which products generate the most revenue?
+SELECT
+p.Product_ID,
+p.product_name, 
+p.Product_category,
+s.Units *p.Product_Price AS Revenue
+FROM sales s
+JOIN products p
+ON s.Product_ID = p.Product_ID;
+
+4. -- Which products generate the highest profit?
+SELECT
+p.Product_ID,
+p.product_name, 
+p.Product_category,
+SUM(s.Units) AS total_units_sold,
+SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+FROM sales s
+JOIN products p
+ON s.Product_ID = p.Product_ID
+GROUP BY p.Product_ID,
+         p.product_name, 
+         p.Product_category
+ORDER BY Total_Profit DESC;
+
+5. -- Are our best-selling products also our most profitable products?
+WITH Product_Performance AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units) AS Total_Units_Sold,
+        SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+),
+
+Ranked_Products AS (
+    SELECT
+        *,
+        RANK() OVER (ORDER BY Total_Units_Sold DESC) AS Sales_Rank,
+        RANK() OVER (ORDER BY Total_Profit DESC) AS Profit_Rank
+    FROM Product_Performance
+)
+SELECT
+    Product_Name,
+    Product_Category,
+    Total_Units_Sold,
+    Total_Profit,
+    Sales_Rank,
+    Profit_Rank
+FROM Ranked_Products
+ORDER BY Sales_Rank;
+
+6. -- What are the top 5 revenue-generating products?
+SELECT
+p.Product_ID,
+p.product_name, 
+p.Product_category,
+SUM(s.Units *p.Product_Price) AS Revenue
+FROM sales s
+JOIN products p
+ON s.Product_ID = p.Product_ID
+GROUP BY p.Product_ID,
+p.product_name, 
+p.Product_category
+ORDER BY Revenue DESC
+LIMIT 5;
+
+7. -- What are the bottom 5 products by revenue?
+SELECT
+p.Product_ID,
+p.product_name, 
+p.Product_category,
+SUM(s.Units *p.Product_Price) AS Revenue
+FROM sales s
+JOIN products p
+ON s.Product_ID = p.Product_ID
+GROUP BY p.Product_ID,
+p.product_name, 
+p.Product_category
+ORDER BY Revenue ASC
+LIMIT 5;
+
+8. -- Which products have high sales volume but low profit?
+WITH Product_Performance AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units) AS Total_Units_Sold,
+        SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+),
+
+Average_Performance AS (
+    SELECT
+        AVG(Total_Units_Sold) AS Avg_Units_Sold,
+        AVG(Total_Profit) AS Avg_Profit
+    FROM Product_Performance
+)
+
+SELECT
+    pp.Product_Name,
+    pp.Product_Category,
+    pp.Total_Units_Sold,
+    pp.Total_Profit
+FROM Product_Performance pp
+CROSS JOIN Average_Performance ap
+WHERE pp.Total_Units_Sold > ap.Avg_Units_Sold
+  AND pp.Total_Profit < ap.Avg_Profit
+ORDER BY pp.Total_Units_Sold DESC;
+
+9. -- Which products have the highest profit margin?
+SELECT
+Product_ID,
+product_name, 
+Product_category,
+Product_Cost,
+Product_price,
+(Product_Price- Product_Cost) Profit_per_unit,
+ROUND(
+        ((Product_Price - Product_Cost) / Product_Price) * 100,
+        2
+    ) AS Profit_Margin
+FROM products
+ORDER BY  Profit_Margin DESC
+LIMIT 15;
+
+-- Which products are underperforming compared with the average product?
+WITH Product_Performance AS (
+    SELECT
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category,
+        SUM(s.Units) AS Total_Units_Sold,
+        SUM(s.Units * p.Product_Price) AS Total_Revenue,
+        SUM(s.Units * (p.Product_Price - p.Product_Cost)) AS Total_Profit
+    FROM Sales s
+    JOIN Products p
+        ON s.Product_ID = p.Product_ID
+    GROUP BY
+        p.Product_ID,
+        p.Product_Name,
+        p.Product_Category
+)
+
+SELECT
+    Product_Name,
+    Product_Category,
+    Total_Units_Sold,
+    Total_Revenue,
+    Total_Profit
+FROM Product_Performance
+WHERE Total_Revenue < (
+    SELECT AVG(Total_Revenue)
+    FROM Product_Performance
+)
+ORDER BY Total_Revenue ASC;
